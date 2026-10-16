@@ -143,7 +143,7 @@ ambiguous edits fail loudly instead of silently corrupting a file.
 ```bash
 npm run typecheck       # whole-project TypeScript check
 npm run test:tools      # 11 agent-tool edge cases (CRLF, ambiguity, traversal, ...)
-npm run test:api        # 10 end-to-end API + agent-loop checks (needs the dev server)
+npm run test:api        # 11 end-to-end API + agent-loop checks (needs the dev server)
 npm run test:markdown   # 12 markdown-rendering checks incl. raw-HTML/XSS safety
 
 npm run mock:llm        # optional: local OpenAI-compatible mock on :9911
@@ -208,6 +208,7 @@ editor area, panel, status bar) mirrors VS Code's real workbench structure, and 
 is Monaco, the same editor core VS Code ships. This project does not build or embed the VS
 Code desktop application; it is an independent web implementation of the Cursor-style
 experience on top of the Monaco editor.
+
 
 
 
