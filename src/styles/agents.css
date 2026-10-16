@@ -349,19 +349,112 @@
   color: var(--text);
 }
 
-.msg__caret {
-  display: inline-block;
-  width: 7px;
-  height: 14px;
-  margin-left: 3px;
-  vertical-align: text-bottom;
-  background: var(--accent);
-  animation: blink 1s steps(2) infinite;
+/* ============================================================
+   Streaming affordance - a shimmer sweep, not a blinking block.
+   Cursor animates the text itself rather than parking a cursor glyph
+   at the end of it, so the last block fades under a moving highlight
+   while more tokens arrive.
+   ============================================================ */
+/* Base stays at a readable tone; only a soft highlight band travels across it,
+   so the text never drops to an illegible grey while streaming. */
+.md--streaming > *:last-child {
+  background-image: linear-gradient(
+    100deg,
+    var(--text-muted) 20%,
+    var(--text) 42%,
+    var(--text) 52%,
+    var(--text-muted) 74%
+  );
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: md-shimmer 2.1s linear infinite;
 }
 
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
+/* Code fences keep their own syntax colours; shimmer the container instead
+   so we do not have to fight highlight.js token colours. */
+.md--streaming > *:last-child.codeblock {
+  background-image: none;
+  -webkit-text-fill-color: inherit;
+  animation: none;
+}
+
+.md--streaming > *:last-child.codeblock .codeblock__pre {
+  background: linear-gradient(100deg, transparent 20%, rgba(124, 92, 255, 0.1) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: md-shimmer 1.9s linear infinite;
+}
+
+@keyframes md-shimmer {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+/* Shown between "request sent" and the first streamed token. */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-top: 3px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.thinking__label {
+  background-image: linear-gradient(100deg, var(--text-muted) 20%, var(--text) 45%, var(--text-muted) 72%);
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: md-shimmer 2.1s linear infinite;
+}
+
+.thinking__steps {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.thinking__steps i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: thinking-bounce 1.3s ease-in-out infinite;
+}
+
+.thinking__steps i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.thinking__steps i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes thinking-bounce {
+  0%, 70%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md--streaming > *:last-child,
+  .md--streaming > *:last-child.codeblock .codeblock__pre,
+  .thinking__label,
+  .thinking__steps i {
+    animation: none;
+  }
 }
 
 .notice {
@@ -896,5 +989,8 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+
+
 
 

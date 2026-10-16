@@ -90,7 +90,7 @@ function CodeBlock({ children, className, raw }: { children?: ReactNode; classNa
 
 interface MarkdownProps {
   children: string;
-  /** Appends a blinking caret after the last block while the model streams. */
+  /** Applies the streaming shimmer to the block currently being written. */
   streaming?: boolean;
 }
 
@@ -163,7 +163,7 @@ export const Markdown = memo(function Markdown({ children, streaming }: Markdown
   );
 
   return (
-    <div className="md">
+    <div className={streaming ? 'md md--streaming' : 'md'}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeHighlight, { ignoreMissing: true }]]}
@@ -171,7 +171,7 @@ export const Markdown = memo(function Markdown({ children, streaming }: Markdown
       >
         {children}
       </ReactMarkdown>
-      {streaming && <span className="msg__caret" />}
     </div>
   );
 });
+

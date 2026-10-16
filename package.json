@@ -16,7 +16,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "tsx server/index.ts",
     "mock:markdown": "node tools/mock-markdown.mjs 9912",
-    "test:markdown": "node tools/md-verify.mjs"
+    "test:markdown": "node tools/md-verify.mjs",
+    "mock:slow": "node tools/mock-slow.mjs 9913",
+    "test:streaming": "node tools/stream-verify.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",

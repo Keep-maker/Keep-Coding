@@ -112,6 +112,12 @@ Agent answers are rendered as GitHub-flavoured markdown (`react-markdown` + `rem
   that file in the editor
 - Raw HTML from the model is escaped, never executed (verified by `test:markdown`)
 
+While a run is in progress the UI never parks a blinking block cursor at the end of the
+text. Instead, the block currently being written sweeps under a soft highlight (the
+streaming shimmer Cursor uses), and a `Thinking` row with animated dots covers the gaps
+before the first token and between tool calls. Both disappear the moment the run settles.
+`prefers-reduced-motion` disables the animation.
+
 ### Agent tools
 
 | Tool | Purpose |
@@ -145,6 +151,7 @@ npm run typecheck       # whole-project TypeScript check
 npm run test:tools      # 11 agent-tool edge cases (CRLF, ambiguity, traversal, ...)
 npm run test:api        # 11 end-to-end API + agent-loop checks (needs the dev server)
 npm run test:markdown   # 12 markdown-rendering checks incl. raw-HTML/XSS safety
+npm run test:streaming  # 8 streaming-affordance checks (shimmer, no blinking caret)
 
 npm run mock:llm        # optional: local OpenAI-compatible mock on :9911
 npm run mock:markdown   # optional: mock that returns a markdown torture test
@@ -158,6 +165,8 @@ Two mock providers let the whole stack be exercised without spending API credits
   (`list_files → write_file → read_file → edit_file → run_command`) and then replies with a
   rich markdown answer. It writes its own scratch file, so it works against any workspace.
 - `tools/mock-markdown.mjs` returns a markdown torture-test document for the renderer.
+- `tools/mock-slow.mjs` streams one token at a time after a delay, so the thinking and
+  shimmer states can be observed and asserted.
 
 ```bash
 npm run mock:llm                         # terminal 1
@@ -208,6 +217,7 @@ editor area, panel, status bar) mirrors VS Code's real workbench structure, and 
 is Monaco, the same editor core VS Code ships. This project does not build or embed the VS
 Code desktop application; it is an independent web implementation of the Cursor-style
 experience on top of the Monaco editor.
+
 
 
 

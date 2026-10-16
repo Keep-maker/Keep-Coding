@@ -3,6 +3,7 @@ import { useApp } from '../../state/store';
 import type { TranscriptItem } from '../../types';
 import { IconSparkle, IconWarning } from '../common/Icons';
 import { Markdown } from '../common/Markdown';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { ToolCall } from './ToolCall';
 
 function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: 'user' }> }) {
@@ -72,8 +73,22 @@ export function Transcript() {
   const state = useApp();
   const session = state.sessions.find((s) => s.id === state.activeSessionId) ?? null;
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Show the thinking placeholder while the run is live but not visibly doing
+  // anything yet: right after the prompt, between the model's reply and a tool
+  // call, and in the pause after a tool finishes. A running tool has its own
+  // indicator, and a settled run never shows this.
+  const last = session?.items.at(-1);
+  const isRunning = session?.status === 'running';
+  const waitingForFirstToken = Boolean(
+    isRunning &&
+      (!last ||
+        last.kind === 'user' ||
+        (last.kind === 'assistant' && !last.text.trim()) ||
+        (last.kind === 'tool' && last.status !== 'running')),
+  );
   const itemCount = session?.items.length ?? 0;
-  const lastTextLength = session?.items.at(-1)?.kind === 'assistant' ? (session.items.at(-1) as any).text.length : 0;
+  const lastTextLength = last?.kind === 'assistant' ? last.text.length : 0;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -114,11 +129,16 @@ export function Transcript() {
           return <Notice key={item.id} item={item} />;
         })}
 
+        {/* Waiting for the first token: shimmer instead of a blinking cursor. */}
+        {waitingForFirstToken && <ThinkingIndicator />}
+
         <div ref={bottomRef} />
       </div>
     </div>
   );
 }
+
+
 
 
 
