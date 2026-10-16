@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-types/
+vendor/
+.data/
+workspaces/
+.env
+*.log
+shots/
+playwright-report/

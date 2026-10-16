@@ -1,0 +1,40 @@
+{
+  "name": "cursor-fork",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Web AI coding tool replicating Cursor's core experience (Editor Window + Agents Window)",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:web": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:tools": "tsx tools/tools-test.ts",
+    "test:api": "node tools/verify.mjs",
+    "mock:llm": "node tools/mock-llm.mjs 9911",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx server/index.ts"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "express": "^4.21.2",
+    "monaco-editor": "^0.52.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "playwright": "^1.64.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}
