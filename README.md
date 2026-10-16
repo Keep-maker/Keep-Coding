@@ -145,8 +145,8 @@ npm run mock:llm                       # terminal 1
 # point Settings → Base URL at http://127.0.0.1:9911/v1
 ```
 
-Visual checks use Playwright (`tools/shot*.mjs`), which capture screenshots into `shots/`
-and report console errors.
+Visual checks use Playwright: `node tools/shot.mjs` walks both windows, saves screenshots into
+`shots/`, and exits non-zero if the page logged any console errors.
 
 ---
 
@@ -163,6 +163,23 @@ and report console errors.
 
 ---
 
+## Research notes
+
+`research/cursor-docs/` contains the Cursor 3 product documentation that informed the
+window and agent design (Agents Window, Agent overview, Plan Mode, Projects, Prompting,
+Design Mode).
+
+Two tooling caveats, recorded for reproducibility:
+
+- **Firecrawl and Context7 were not available in the build environment** (no such MCP
+  server was configured). The Cursor documentation above was fetched directly and
+  converted to text, and framework API reference came from the installed packages'
+  TypeScript declarations under `node_modules` rather than a docs-lookup service.
+- The VS Code tree in `vendor/vscode` was cloned for reference only. It is gitignored;
+  re-clone it with `gh repo clone microsoft/vscode vendor/vscode` if you want it locally.
+
+---
+
 ## Relationship to VS Code
 
 `vendor/vscode` is a shallow clone of `microsoft/vscode` kept as a **reference** for the
@@ -171,4 +188,6 @@ editor area, panel, status bar) mirrors VS Code's real workbench structure, and 
 is Monaco, the same editor core VS Code ships. This project does not build or embed the VS
 Code desktop application; it is an independent web implementation of the Cursor-style
 experience on top of the Monaco editor.
+
+
 
