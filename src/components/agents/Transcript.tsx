@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useApp } from '../../state/store';
 import type { TranscriptItem } from '../../types';
 import { IconSparkle, IconWarning } from '../common/Icons';
+import { Markdown } from '../common/Markdown';
 import { ToolCall } from './ToolCall';
 
 function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: 'user' }> }) {
@@ -19,8 +20,7 @@ function AssistantMessage({ item }: { item: Extract<TranscriptItem, { kind: 'ass
         <IconSparkle size={13} />
       </div>
       <div className="msg__content">
-        {item.text}
-        {item.streaming && <span className="msg__caret" />}
+        <Markdown streaming={item.streaming}>{item.text}</Markdown>
       </div>
     </div>
   );
@@ -119,5 +119,6 @@ export function Transcript() {
     </div>
   );
 }
+
 
 

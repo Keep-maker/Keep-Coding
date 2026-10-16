@@ -5,6 +5,7 @@ import './styles/tokens.css';
 import './styles/shell.css';
 import './styles/editor.css';
 import './styles/agents.css';
+import './styles/markdown.css';
 import App from './App';
 
 const container = document.getElementById('root');
@@ -15,3 +16,4 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 );
+

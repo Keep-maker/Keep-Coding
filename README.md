@@ -9,7 +9,7 @@ The app ships **two switchable window modes**, mirroring Cursor 3:
 |---|---|---|
 | **Role** | Classic IDE for browsing and hand-editing code | Agent-first workbench for delegating work |
 | **Layout** | Activity bar → file tree/search → tabs → editor → terminal → status bar | Session rail → transcript → composer, plus a review side panel |
-| **Key features** | File tree, multi-tab editing, Monaco syntax highlighting, fuzzy quick-open (Ctrl+P), workspace-wide search, integrated terminal, breadcrumbs, dirty-state tracking | Multiple parallel agents, streaming responses, live tool-call transparency (diffs + terminal output), Agent/Plan/Ask modes, change review with unified diffs |
+| **Key features** | File tree, multi-tab editing, Monaco syntax highlighting, fuzzy quick-open (Ctrl+P), workspace-wide search, integrated terminal, breadcrumbs, dirty-state tracking | Multiple parallel agents, streaming responses, rendered markdown answers (GFM tables, task lists, syntax-highlighted code with copy buttons, clickable file paths), live tool-call transparency (diffs + terminal output), Agent/Plan/Ask modes, change review with unified diffs |
 
 Both windows share one workspace, one file state, and one agent session list, so you can
 start an agent in the Agents Window and inspect its edits in the Editor Window (and vice versa).
@@ -78,10 +78,11 @@ src/                        React UI
   api/                      REST + agent WebSocket clients
   components/editor/        Editor Window
   components/agents/        Agents Window
-  styles/                   design tokens + per-window stylesheets
+  components/common/        markdown renderer, quick open, settings, icons
+  styles/                   design tokens + per-window + markdown stylesheets
 
 vendor/vscode/              shallow clone of microsoft/vscode (reference; not built)
-tools/                      verification scripts, mock provider, screenshot helper
+tools/                      verification scripts, mock providers, screenshot helper
 examples/demo-project/    sample workspace the app opens by default
 ```
 
@@ -97,6 +98,19 @@ Each turn is a bounded loop (`server/agent/loop.ts`):
 
 Every session gets its own `AbortController`, so agents run **concurrently** and the UI can
 stop one without touching the others.
+
+### Agent output rendering
+
+Agent answers are rendered as GitHub-flavoured markdown (`react-markdown` + `remark-gfm` +
+`rehype-highlight`), not raw text:
+
+- Headings, lists, nested lists, bold/italic/strikethrough, blockquotes, horizontal rules
+- GFM tables (horizontally scrollable) and task lists with real checkboxes
+- Fenced code blocks get a language bar, syntax highlighting, and a copy button; long lines
+  scroll inside the block instead of widening the transcript
+- Inline code that matches a file in the workspace renders as a clickable chip that opens
+  that file in the editor
+- Raw HTML from the model is escaped, never executed (verified by `test:markdown`)
 
 ### Agent tools
 
@@ -127,22 +141,28 @@ ambiguous edits fail loudly instead of silently corrupting a file.
 ## Verification
 
 ```bash
-npm run typecheck     # whole-project TypeScript check
-npm run test:tools    # 11 agent-tool edge cases (CRLF, ambiguity, traversal, ...)
-npm run test:api      # 10 end-to-end API + agent-loop checks (needs the dev server)
+npm run typecheck       # whole-project TypeScript check
+npm run test:tools      # 11 agent-tool edge cases (CRLF, ambiguity, traversal, ...)
+npm run test:api        # 10 end-to-end API + agent-loop checks (needs the dev server)
+npm run test:markdown   # 12 markdown-rendering checks incl. raw-HTML/XSS safety
 
-npm run mock:llm      # optional: local OpenAI-compatible mock on :9911
+npm run mock:llm        # optional: local OpenAI-compatible mock on :9911
+npm run mock:markdown   # optional: mock that returns a markdown torture test
 ```
 
 `test:api` drives real agent runs over the WebSocket, including a **parallel-agents** check.
 
-The mock provider (`tools/mock-llm.mjs`) scripts a 4-step trajectory
-(`list_files → read_file → edit_file → run_command`) so the full loop can be verified
-without spending API credits:
+Two mock providers let the whole stack be exercised without spending API credits:
+
+- `tools/mock-llm.mjs` scripts a self-contained 5-step trajectory
+  (`list_files → write_file → read_file → edit_file → run_command`) and then replies with a
+  rich markdown answer. It writes its own scratch file, so it works against any workspace.
+- `tools/mock-markdown.mjs` returns a markdown torture-test document for the renderer.
 
 ```bash
-npm run mock:llm                       # terminal 1
-# point Settings → Base URL at http://127.0.0.1:9911/v1
+npm run mock:llm                         # terminal 1
+# point Settings → Base URL at http://127.0.0.1:9911/v1, or:
+npm run test:markdown                    # drives the markdown mock and asserts the output
 ```
 
 Visual checks use Playwright: `node tools/shot.mjs` walks both windows, saves screenshots into
@@ -188,6 +208,8 @@ editor area, panel, status bar) mirrors VS Code's real workbench structure, and 
 is Monaco, the same editor core VS Code ships. This project does not build or embed the VS
 Code desktop application; it is an independent web implementation of the Cursor-style
 experience on top of the Monaco editor.
+
+
 
 
 
