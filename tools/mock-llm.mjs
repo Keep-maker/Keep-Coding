@@ -161,4 +161,5 @@ const server = http.createServer((req, res) => {
   });
 });
 
+server.on('request', () => {});
 server.listen(port, () => console.log(`[mock] OpenAI-compatible server on http://127.0.0.1:${port}`));

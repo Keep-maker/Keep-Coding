@@ -1,0 +1,13 @@
+{
+  "hooks": [
+    {
+      "stage": "before_tool",
+      "matcher": "run_command",
+      "command": "node .cursor/hooks/guard-command.mjs"
+    },
+    {
+      "stage": "after_edit",
+      "command": "node .cursor/hooks/after-edit.mjs"
+    }
+  ]
+}

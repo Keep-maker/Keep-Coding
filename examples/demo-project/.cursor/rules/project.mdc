@@ -1,0 +1,9 @@
+---
+deprecated: false
+---
+
+# Project rules
+
+- This project is a small demo used to exercise an AI coding agent.
+- Do not add third-party runtime dependencies without asking first.
+- Keep the public API of `src/index.js` stable.

@@ -7,7 +7,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readFileTool, editFileTool, writeFileTool, findTool } from '../server/agent/tools.js';
+import { readFileTool } from '../server/agent/tools/read.js';
+import { editFileTool as editTool, writeFileTool as writeTool } from '../server/agent/tools/edit.js';
+import { findTool } from '../server/agent/tools/index.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cursorfork-'));
 let pass = 0;
@@ -18,11 +20,11 @@ function check(name: string, ok: boolean, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' - ' + detail : ''}`);
 }
 
-const ctx = { root };
+const ctx = { root, sessionId: 'test', snapshot: () => {} };
 
 // --- CRLF preservation ---
 fs.writeFileSync(path.join(root, 'crlf.txt'), 'alpha\r\nbeta\r\ngamma\r\n', 'utf8');
-const crlfEdit = await editFileTool.run(
+const crlfEdit = await editTool.run(
   { path: 'crlf.txt', old_string: 'beta', new_string: 'beta-updated' },
   ctx,
 );
@@ -32,16 +34,16 @@ check('CRLF endings preserved', crlfAfter.includes('\r\n') && !crlfAfter.include
 
 // --- ambiguous edit is rejected ---
 fs.writeFileSync(path.join(root, 'dupe.txt'), 'x\ny\nx\n', 'utf8');
-const ambiguous = await editFileTool.run({ path: 'dupe.txt', old_string: 'x', new_string: 'z' }, ctx);
+const ambiguous = await editTool.run({ path: 'dupe.txt', old_string: 'x', new_string: 'z' }, ctx);
 check('ambiguous edit rejected', ambiguous.isError === true, ambiguous.content.slice(0, 60));
-const allReplaced = await editFileTool.run(
+const allReplaced = await editTool.run(
   { path: 'dupe.txt', old_string: 'x', new_string: 'z', replace_all: true },
   ctx,
 );
 check('replace_all works', !allReplaced.isError, allReplaced.content);
 
 // --- missing needle reports clearly ---
-const missing = await editFileTool.run({ path: 'crlf.txt', old_string: 'not-present', new_string: 'x' }, ctx);
+const missing = await editTool.run({ path: 'crlf.txt', old_string: 'not-present', new_string: 'x' }, ctx);
 check('missing old_string reported', missing.isError === true, missing.content.slice(0, 60));
 
 // --- path escape blocked ---
@@ -49,7 +51,7 @@ const escape = await readFileTool.run({ path: '../../../etc/passwd' }, ctx);
 check('path escape blocked', escape.isError === true, escape.content.slice(0, 60));
 
 // --- create + read round trip ---
-const created = await writeFileTool.run({ path: 'nested/dir/new.ts', content: 'export const x = 1;\n' }, ctx);
+const created = await writeTool.run({ path: 'nested/dir/new.ts', content: 'export const x = 1;\n' }, ctx);
 check('create nested file', !created.isError, created.content);
 check('file exists on disk', fs.existsSync(path.join(root, 'nested/dir/new.ts')));
 
@@ -60,7 +62,7 @@ check('binary read refused', binary.isError === true, binary.content.slice(0, 60
 
 // --- line ranges ---
 fs.writeFileSync(path.join(root, 'lines.txt'), 'one\ntwo\nthree\nfour\n', 'utf8');
-const ranged = await readFileTool.run({ path: 'lines.txt', start_line: 2, end_line: 3 }, ctx);
+const ranged = await readFileTool.run({ path: 'lines.txt', offset: 2, limit: 2 }, ctx);
 check('line range read', ranged.content.includes('two') && ranged.content.includes('three') && !ranged.content.includes('four'));
 
 // --- unknown tool ---

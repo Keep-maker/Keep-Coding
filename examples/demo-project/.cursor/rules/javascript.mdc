@@ -1,0 +1,12 @@
+---
+description: Coding conventions for JavaScript sources
+globs: src/**/*.js
+alwaysApply: false
+---
+
+# JavaScript conventions
+
+- Use `const` by default; `let` only when reassignment is genuinely needed.
+- No semicolon-free style: always terminate statements with `;`.
+- Prefer named exports over default exports.
+- Keep functions under roughly 40 lines; extract helpers when they grow.

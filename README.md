@@ -64,7 +64,7 @@ server/                     Node + Express + WebSocket API
   routes.ts                 workspace (tree, file, search, CRUD) + terminal routes
   index.ts                  HTTP server, agent WebSocket, static SPA hosting
   agent/
-    tools.ts                the 6 agent tools (read/list/search/edit/write/run)
+    tools/                  the 17 agent tools (explore/edit/execute + tasks + questions)
     loop.ts                 stream → tool calls → feed results back → repeat
     sessions.ts             concurrent session manager + transcripts
   services/
@@ -90,7 +90,7 @@ examples/demo-project/    sample workspace the app opens by default
 
 Each turn is a bounded loop (`server/agent/loop.ts`):
 
-1. Stream a chat completion with the 6 tool schemas attached.
+1. Stream a chat completion with the 17 tool schemas attached.
 2. Accumulate streamed text (rendered live) and incremental tool-call fragments.
 3. Execute each tool against the workspace, capturing a **before/after snapshot**.
 4. Append the tool results to the message history and loop.
@@ -122,15 +122,46 @@ before the first token and between tool calls. Both disappear the moment the run
 
 | Tool | Purpose |
 |---|---|
+| `read_file` | Read a line range with line numbers |
 | `list_files` | Enumerate the workspace or a subdirectory |
-| `read_file` | Read a file, optionally a line range, with line numbers for reference |
-| `search_code` | Plain-text or regex content search with glob filtering |
-| `edit_file` | Replace an exact, unique text block (surgical edits) |
+| `glob_file_search` | Find files by glob |
+| `grep_search` | Plain-text or regex content search with glob filtering |
+| `directory_tree` | Return a nested project tree |
+| `read_image` | Attach a local image for vision-capable models |
+| `file_info` | Report size, line count, and language |
+| `edit_file` | Replace an exact, unique text block |
+| `multi_edit` | Apply many edits across files in one tool call |
 | `write_file` | Create or fully overwrite a file |
+| `move_file` | Rename or move a file |
+| `delete_file` | Delete a file or directory |
 | `run_command` | Execute a shell command in the workspace root |
+| `todo_write` | Maintain the agent's structured task list |
+| `ask_question` | Pause and ask the user to choose an answer |
+| `task` | Delegate a bounded task to a sub-agent |
 
 `edit_file` requires the matched text to be unique unless `replace_all` is set, which makes
 ambiguous edits fail loudly instead of silently corrupting a file.
+
+### Customization
+
+The Customize drawer (`Ctrl+Shift+J`) discovers the same extension surfaces Cursor uses:
+
+- **Skills** from `.cursor/skills/<name>/SKILL.md`, `~/.cursor/skills`, and the
+  `.agents/skills` compatibility paths. Invoke one from the composer with `/`, inspect it
+  in Customize, or open its `SKILL.md` directly.
+- **Rules** from `.cursor/rules/*.mdc` and `AGENTS.md`, including activation mode and glob
+  scoping.
+- **Hooks** from `.cursor/hooks.json`, with support for `session_start`, `before_tool`,
+  `after_tool`, `after_edit`, and `before_submit`.
+- **Sub-agents** via the `task` tool. They get an isolated context and return a report.
+- **Built-in tools** grouped by exploration, editing, and execution.
+
+### Transcript controls
+
+Every user and assistant message supports copy, edit-and-rerun, rewind, fork, regenerate
+(assistant messages), and delete. Assistant output is rendered as GitHub-flavoured markdown.
+Checkpoints snapshot the files touched by each turn; the checkpoint dialog previews a diff
+and can restore those files without deleting the conversation.
 
 ### Safety boundaries
 
@@ -148,10 +179,11 @@ ambiguous edits fail loudly instead of silently corrupting a file.
 
 ```bash
 npm run typecheck       # whole-project TypeScript check
-npm run test:tools      # 11 agent-tool edge cases (CRLF, ambiguity, traversal, ...)
-npm run test:api        # 11 end-to-end API + agent-loop checks (needs the dev server)
-npm run test:markdown   # 12 markdown-rendering checks incl. raw-HTML/XSS safety
-npm run test:streaming  # 8 streaming-affordance checks (shimmer, no blinking caret)
+npm run test:tools      # agent-tool edge cases (CRLF, ambiguity, traversal, ...)
+npm run test:api        # end-to-end API + agent-loop checks (needs the dev server)
+npm run test:markdown   # markdown-rendering checks incl. raw-HTML/XSS safety
+npm run test:streaming  # streaming-affordance checks (shimmer, no blinking caret)
+node tools/verify-advanced.mjs  # checkpoints, edit/fork, skills, rules, hooks, 17 tools
 
 npm run mock:llm        # optional: local OpenAI-compatible mock on :9911
 npm run mock:markdown   # optional: mock that returns a markdown torture test
@@ -188,6 +220,7 @@ Visual checks use Playwright: `node tools/shot.mjs` walks both windows, saves sc
 | `Ctrl+S` | Save the active file (files also autosave 700 ms after you stop typing) |
 | `Ctrl+Shift+A` | Switch to the Agents Window |
 | `Ctrl+Shift+E` | Switch to the Editor Window |
+| `Ctrl+Shift+J` | Open Customize (skills, rules, hooks, tools) |
 | `Enter` / `Shift+Enter` | Send agent prompt / newline |
 
 ---
