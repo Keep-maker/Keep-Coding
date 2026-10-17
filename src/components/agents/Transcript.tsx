@@ -3,18 +3,13 @@ import { itemText, sessionOf, store, useApp } from '../../state/store';
 import type { CheckpointSummary, TranscriptItem } from '../../types';
 import {
   IconArrowDown,
-  IconAt,
   IconCheck,
-  IconChevronDown,
-  IconChevronRight,
   IconCopy,
-  IconFileCode,
   IconGitFork,
   IconMore,
   IconPencil,
   IconRefresh,
   IconRewind,
-  IconSparkle,
   IconTrash,
   IconWarning,
 } from '../common/Icons';
@@ -286,9 +281,6 @@ function AssistantMessage({
 }) {
   return (
     <div className="msg msg--assistant">
-      <div className="msg__avatar">
-        <IconSparkle size={13} />
-      </div>
       <div className="msg__content">
         <Markdown streaming={item.streaming}>{item.text}</Markdown>
         {!item.streaming && (
@@ -327,9 +319,6 @@ const EXAMPLES: { label: string; prompt: string }[] = [
 function EmptyState() {
   return (
     <div className="agents__empty">
-      <div className="agents__empty-badge">
-        <IconSparkle size={20} />
-      </div>
       <h2>What should we build?</h2>
       <p className="agents__empty-sub">
         The agent reads your files, edits code, and runs commands to finish the task. You review the diff.
@@ -412,64 +401,36 @@ export function Transcript() {
     );
   }
 
-  const statusBadge =
-    session.status === 'running'
-      ? 'badge--info'
-      : session.status === 'waiting'
-        ? 'badge--info'
-        : session.status === 'error'
-          ? 'badge--err'
-          : 'badge--ok';
   const checkpoints = state.checkpoints[session.id] ?? [];
 
   return (
     <div className="transcript" ref={scrollRef} onScroll={onScroll}>
       <div className="transcript__inner">
-        <div className="transcript__title">
-          <div className="transcript__eyebrow">
-            <span>Agent session</span>
-            <span className="transcript__status-dot" />
-            <span>{session.mode || 'agent'}</span>
-          </div>
-          <div className="transcript__meta">
-            <span className={`badge ${statusBadge}`}>
-              {session.status === 'waiting' ? 'needs your answer' : session.status}
-            </span>
-            <span className="transcript__root" title={session.root}>
-              {session.root}
-            </span>
-            {items.length > 0 && (
-              <button
-                className="transcript__copyall"
-                onClick={() => void store.copyConversation()}
-                title="Copy the whole conversation as Markdown"
-              >
-                <IconCopy size={11} />
-                Copy all
-              </button>
-            )}
-            {checkpoints.length > 0 && (
-              <button
-                className="transcript__copyall"
-                onClick={() => {
-                  const latest = checkpoints[checkpoints.length - 1];
-                  if (latest) setRestoreTarget(latest);
-                }}
-                title="Preview and restore the latest checkpoint"
-              >
-                <IconRewind size={11} />
-                Checkpoints ({checkpoints.length})
-              </button>
-            )}
-          </div>
-          {session.forkedFrom && (
+        <div className="transcript__meta">
+          <span className="transcript__root" title={session.root}>
+            {session.root}
+          </span>
+          {items.length > 0 && (
             <button
-              className="transcript__fork"
-              title="The agent this one was forked from"
-              onClick={() => store.setActiveSession(session.forkedFrom!.sessionId)}
+              className="transcript__copyall"
+              onClick={() => void store.copyConversation()}
+              title="Copy the whole conversation as Markdown"
             >
-              <IconGitFork size={11} />
-              forked from {session.forkedFrom.title}
+              <IconCopy size={11} />
+              Copy all
+            </button>
+          )}
+          {checkpoints.length > 0 && (
+            <button
+              className="transcript__copyall"
+              onClick={() => {
+                const latest = checkpoints[checkpoints.length - 1];
+                if (latest) setRestoreTarget(latest);
+              }}
+              title="Preview and restore the latest checkpoint"
+            >
+              <IconRewind size={11} />
+              Checkpoints ({checkpoints.length})
             </button>
           )}
         </div>

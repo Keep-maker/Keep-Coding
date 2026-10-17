@@ -15,7 +15,7 @@ function Titlebar({ onQuickOpen }: { onQuickOpen: () => void }) {
     <div className="titlebar">
       <div className="titlebar__brand">
         <span className="titlebar__brand-mark">C</span>
-        <span>Cursor Fork</span>
+        <span>Keep Coding</span>
       </div>
 
       <div className="mode-switch">

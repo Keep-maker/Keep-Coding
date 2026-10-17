@@ -68,7 +68,10 @@ export function SettingsDialog() {
           <div className="field">
             <label>Base URL</label>
             <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.deepseek.com/v1" />
-            <span className="field__hint">Any OpenAI-compatible endpoint. The /chat/completions path is added automatically.</span>
+            <span className="field__hint">
+              Any OpenAI-compatible endpoint. The <span className="mono">/chat/completions</span> path is added
+              automatically. Don&apos;t include it in this field.
+            </span>
           </div>
           <div className="field">
             <label>Model ID</label>
@@ -83,8 +86,7 @@ export function SettingsDialog() {
               placeholder={state.provider?.apiKeyConfigured ? `Stored: ${state.provider.apiKeyMasked}` : 'sk-...'}
             />
             <span className="field__hint">
-              Stored locally in <span className="mono">.data/settings.json</span> on this machine and never sent anywhere
-              except your configured endpoint.
+              Leave blank to keep the stored key. The key must be the raw value only — no spaces or extra text.
             </span>
           </div>
           {testResult && (

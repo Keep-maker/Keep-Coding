@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄钟</title>
+<style>
+  :root {
+    --bg: #1e1a2b;
+    --panel: #2a2440;
+    --accent: #ff6357;
+    --accent-break: #4ecdc4;
+    --text: #f5f2ff;
+    --muted: #9a93b5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: var(--panel);
+    border-radius: 24px;
+    padding: 40px;
+    width: 340px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .mode-tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .mode-tabs button {
+    background: transparent;
+    border: 2px solid transparent;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all .2s;
+  }
+  .mode-tabs button.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(255,99,87,.12);
+  }
+  .timer-ring {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 24px;
+  }
+  .timer-ring svg { transform: rotate(-90deg); }
+  .timer-ring .time {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .timer-ring .time .m {
+    font-size: 52px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .timer-ring .time .s {
+    font-size: 22px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .status {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    min-height: 18px;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .controls button {
+    border: none;
+    border-radius: 14px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .1s;
+  }
+  .controls button:active { transform: scale(.96); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: rgba(255,255,255,.08); color: var(--text); }
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding-top: 20px;
+  }
+  .stats div { font-size: 13px; color: var(--muted); }
+  .stats span { display: block; font-size: 22px; font-weight: 700; color: var(--text); }
+  .settings {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .settings label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--muted);
+  }
+  .settings input {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px;
+    font-size: 14px;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="mode-tabs">
+      <button data-mode="work" class="active">工作</button>
+      <button data-mode="short">短休息</button>
+      <button data-mode="long">长休息</button>
+    </div>
+
+    <div class="timer-ring">
+      <svg width="220" height="220">
+        <circle cx="110" cy="110" r="100" stroke="rgba(255,255,255,.1)" stroke-width="10" fill="none"/>
+        <circle id="progress" cx="110" cy="110" r="100" stroke="var(--accent)" stroke-width="10"
+          fill="none" stroke-linecap="round"
+          stroke-dasharray="628.32" stroke-dashoffset="0"/>
+      </svg>
+      <div class="time">
+        <span class="m" id="mm">25</span>
+        <span class="s" id="ss">00</span>
+      </div>
+    </div>
+
+    <div class="status" id="status">准备好开始了吗？</div>
+
+    <div class="controls">
+      <button class="btn-primary" id="toggle">开始</button>
+      <button class="btn-secondary" id="reset">重置</button>
+    </div>
+
+    <div class="stats">
+      <div><span id="done">0</span>今日完成</div>
+      <div><span id="total">0</span>总番茄数</div>
+    </div>
+
+    <div class="settings">
+      <label>工作（分钟）
+        <input type="number" id="cfgWork" min="1" max="120" value="25">
+      </label>
+      <label>短休息（分钟）
+        <input type="number" id="cfgShort" min="1" max="60" value="5">
+      </label>
+      <label>长休息（分钟）
+        <input type="number" id="cfgLong" min="1" max="120" value="15">
+      </label>
+      <label>长休息间隔（番茄数）
+        <input type="number" id="cfgInterval" min="2" max="12" value="4">
+      </label>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const MODES = { work: '工作', short: '短休息', long: '长休息' };
+  const RADIUS = 100;
+  const CIRC = 2 * Math.PI * RADIUS;
+
+  let mode = 'work';
+  let remaining = 25 * 60;
+  let total = 25 * 60;
+  let running = false;
+  let timerId = null;
+  let completed = 0;          // 本轮（今日）完成的番茄数
+  let totalPomodoros = 0;    // 历史总数
+
+  const el = {
+    mm: document.getElementById('mm'),
+    ss: document.getElementById('ss'),
+    status: document.getElementById('status'),
+    toggle: document.getElementById('toggle'),
+    reset: document.getElementById('reset'),
+    done: document.getElementById('done'),
+    total: document.getElementById('total'),
+    progress: document.getElementById('progress'),
+    cfgWork: document.getElementById('cfgWork'),
+    cfgShort: document.getElementById('cfgShort'),
+    cfgLong: document.getElementById('cfgLong'),
+    cfgInterval: document.getElementById('cfgInterval'),
+  };
+  const tabs = [...document.querySelectorAll('.mode-tabs button')];
+
+  const getDuration = (m) => {
+    const v = {
+      work: parseInt(el.cfgWork.value, 10) || 25,
+      short: parseInt(el.cfgShort.value, 10) || 5,
+      long: parseInt(el.cfgLong.value, 10) || 15,
+    };
+    return Math.max(1, v[m]) * 60;
+  };
+  const getInterval = () => Math.max(2, parseInt(el.cfgInterval.value, 10) || 4);
+
+  function render() {
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    el.mm.textContent = String(m).padStart(2, '0');
+    el.ss.textContent = String(s).padStart(2, '0');
+    const fraction = total ? remaining / total : 0;
+    el.progress.style.strokeDashoffset = CIRC * (1 - fraction);
+    el.progress.style.stroke = mode === 'work' ? 'var(--accent)' : 'var(--accent-break)';
+  }
+
+  function switchMode(m, { auto = false } = {}) {
+    mode = m;
+    total = remaining = getDuration(m);
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+    document.querySelector('.mode-tabs button.active').style.borderColor =
+      m === 'work' ? 'var(--accent)' : 'var(--accent-break)';
+    if (!auto) {
+      stop();
+      el.status.textContent = `已切换到「${MODES[m]}」`;
+    }
+    render();
+  }
+
+  let lastTick = 0;       // 上次 tick 的时间戳
+  let drift = 0;          // 累计漂移补偿（ms）
+
+  const tick = () => {
+    const now = Date.now();
+    const elapsed = now - lastTick;
+    lastTick = now;
+    // 补偿浏览器节流造成的漂移：如果实际间隔超过 1s，多减掉超出部分
+    const skipped = Math.floor(elapsed / 1000);
+    remaining = Math.max(0, remaining - skipped);
+    if (remaining <= 0) {
+      stop();
+      onFinished();
+      return;
+    }
+    render();
+    timerId = setTimeout(tick, 1000);
+  };
+
+  function start() {
+    if (running) return;
+    running = true;
+    lastTick = Date.now();
+    el.toggle.textContent = '暂停';
+    el.status.textContent = `专注中：${MODES[mode]}`;
+    timerId = setTimeout(tick, 1000);
+  }
+
+  function stop() {
+    running = false;
+    clearTimeout(timerId);
+    el.toggle.textContent = '开始';
+  }
+
+  function onFinished() {
+    beep();
+    document.title = '🍅 时间到！';
+    if (mode === 'work') {
+      completed += 1;
+      totalPomodoros += 1;
+      el.done.textContent = completed;
+      el.total.textContent = totalPomodoros;
+      const next = completed % getInterval() === 0 ? 'long' : 'short';
+      switchMode(next, { auto: true });
+      el.status.textContent = `完成一个番茄！该${next === 'long' ? '好好放松' : '休息'}了`;
+      start();
+    } else {
+      switchMode('work', { auto: true });
+      el.status.textContent = '休息结束，开始新一轮专注';
+      start();
+    }
+  }
+
+  function beep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 1.2);
+    } catch (e) { /* 无音频环境时忽略 */ }
+  }
+
+  el.toggle.addEventListener('click', () => (running ? (stop(), el.status.textContent = '已暂停') : start()));
+  el.reset.addEventListener('click', () => {
+    stop();
+    switchMode(mode);
+    el.status.textContent = '已重置';
+  });
+  tabs.forEach(t => t.addEventListener('click', () => switchMode(t.dataset.mode)));
+
+  render();
+})();
+</script>
+</body>
+</html>

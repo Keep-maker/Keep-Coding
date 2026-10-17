@@ -9,11 +9,12 @@ import { IconDiff, IconFileCode, IconLayers, IconSliders } from '../common/Icons
 export function AgentsWindow() {
   const state = useApp();
   const [sidePanel, setSidePanel] = useState<'none' | 'changes'>('none');
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const session = state.sessions.find((s) => s.id === state.activeSessionId) ?? null;
 
   return (
     <div className="app__body app__body--agents">
-      <AgentsSidebar />
+      <AgentsSidebar collapsed={railCollapsed} onToggle={() => setRailCollapsed((v) => !v)} />
       <div className="agents__main">
         <div className="agents__topbar">
           <div className="agents__topbar-left">
