@@ -11,6 +11,14 @@ import { chromium } from 'playwright';
 const api = process.argv[2] ?? 'http://127.0.0.1:8787';
 const ui = process.argv[3] ?? 'http://127.0.0.1:5173';
 
+const previous = await (await fetch(`${api}/api/settings`)).json();
+const restoreProvider = async () => {
+  await fetch(`${api}/api/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseUrl: previous.baseUrl, model: previous.model }),
+  });
+};
 await fetch(`${api}/api/settings`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -18,6 +26,7 @@ await fetch(`${api}/api/settings`, {
 });
 
 const browser = await chromium.launch();
+try {
 const page = await browser.newPage({ viewport: { width: 1200, height: 1000 }, deviceScaleFactor: 1.5 });
 const errs = [];
 page.on('pageerror', (e) => errs.push(e.message));
@@ -63,6 +72,9 @@ check('final code block still highlighted', (await page.locator('.codeblock .hlj
 check('no page errors', errs.length === 0, errs.join('; '));
 
 await page.screenshot({ path: 'shots/streaming-final.png' });
-await browser.close();
+} finally {
+  await browser.close();
+  await restoreProvider();
+}
 console.log(`\n${pass}/${pass + fail} streaming checks passed`);
 process.exit(fail ? 1 : 0);

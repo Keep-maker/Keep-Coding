@@ -4,7 +4,7 @@ import { AgentsSidebar } from './AgentsSidebar';
 import { Composer } from './Composer';
 import { Transcript } from './Transcript';
 import { ChangesPanel } from './ChangesPanel';
-import { IconDiff, IconFileCode, IconLayers } from '../common/Icons';
+import { IconDiff, IconFileCode, IconLayers, IconSliders } from '../common/Icons';
 
 export function AgentsWindow() {
   const state = useApp();
@@ -29,6 +29,14 @@ export function AgentsWindow() {
             )}
           </div>
           <div className="agents__topbar-right">
+            <button
+              className={`btn btn--ghost ${state.customizeOpen ? 'is-active' : ''}`}
+              onClick={() => store.toggleCustomize()}
+              title="Skills, rules, hooks and tools"
+            >
+              <IconSliders size={14} />
+              Customize
+            </button>
             <button
               className={`btn btn--ghost ${sidePanel === 'changes' ? 'is-active' : ''}`}
               onClick={() => setSidePanel((v) => (v === 'changes' ? 'none' : 'changes'))}

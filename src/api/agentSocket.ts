@@ -76,9 +76,20 @@ export class AgentSocket {
     this.send({ type: 'attach', sessionId });
   }
 
-  start(sessionId: string, prompt: string, instructions?: string): void {
+  start(
+    sessionId: string,
+    prompt: string,
+    options?: { instructions?: string; mode?: string; skills?: string[] },
+  ): void {
     this.activeSessionId = sessionId;
-    this.send({ type: 'start', sessionId, prompt, instructions });
+    this.send({
+      type: 'start',
+      sessionId,
+      prompt,
+      instructions: options?.instructions,
+      mode: options?.mode,
+      skills: options?.skills,
+    });
   }
 
   abort(sessionId: string): void {

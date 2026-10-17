@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { store, useApp } from './state/store';
 import { EditorWindow } from './components/editor/EditorWindow';
 import { AgentsWindow } from './components/agents/AgentsWindow';
+import { CustomizePanel } from './components/agents/CustomizePanel';
 import { SettingsDialog, ToastLayer } from './components/common/SettingsDialog';
 import { QuickOpen } from './components/common/QuickOpen';
-import { IconFileCode, IconLayers, IconSearch, IconSettings } from './components/common/Icons';
+import { IconFileCode, IconLayers, IconSearch, IconSettings, IconSliders } from './components/common/Icons';
 
 function Titlebar({ onQuickOpen }: { onQuickOpen: () => void }) {
   const state = useApp();
@@ -44,6 +45,13 @@ function Titlebar({ onQuickOpen }: { onQuickOpen: () => void }) {
           <IconLayers size={12} />
           <span>{workspaceName}</span>
         </span>
+        <button
+          className={`icon-btn ${state.customizeOpen ? 'icon-btn--active' : ''}`}
+          title="Customize (skills, rules, hooks, tools)"
+          onClick={() => store.toggleCustomize()}
+        >
+          <IconSliders size={15} />
+        </button>
         <button className="icon-btn" title="Model settings" onClick={() => store.toggleSettings(true)}>
           <IconSettings size={15} />
         </button>
@@ -71,6 +79,10 @@ export default function App() {
       if (mod && event.key === ',') {
         event.preventDefault();
         store.toggleSettings(true);
+      }
+      if (mod && event.shiftKey && event.key.toLowerCase() === 'j') {
+        event.preventDefault();
+        store.toggleCustomize();
       }
       if (mod && event.shiftKey && event.key.toLowerCase() === 'a') {
         event.preventDefault();
@@ -104,6 +116,7 @@ export default function App() {
       <Titlebar onQuickOpen={() => setQuickOpen(true)} />
       {state.mode === 'editor' ? <EditorWindow /> : <AgentsWindow />}
       {quickOpen && <QuickOpen onClose={() => setQuickOpen(false)} />}
+      <CustomizePanel />
       <SettingsDialog />
       <ToastLayer />
     </div>

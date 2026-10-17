@@ -1,4 +1,4 @@
-import type { FileNode } from '../types';
+import type { AgentSession, CheckpointDiffEntry, CheckpointSummary, FileNode } from '../types';
 
 export interface ProviderPublicInfo {
   baseUrl: string;
@@ -60,7 +60,64 @@ export const api = {
     request<{ path: string }>('/api/workspace/create', { method: 'POST', body: JSON.stringify({ root, path, type }) }),
   deleteEntry: (root: string, path: string) =>
     request<{ deleted: boolean }>('/api/workspace/delete', { method: 'POST', body: JSON.stringify({ root, path }) }),
+
+  /** Agents ---------------------------------------------------------------- */
+  sessions: () => request<{ sessions: AgentSession[] }>('/api/agents/sessions'),
+  session: (id: string) => request<{ session: AgentSession }>(`/api/agents/sessions/${id}`),
+  createSession: (root: string, title?: string) =>
+    request<{ session: AgentSession }>('/api/agents/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ root, title }),
+    }),
+  deleteSession: (id: string) =>
+    request<{ deleted: boolean }>(`/api/agents/sessions/${id}`, { method: 'DELETE' }),
+
+  /** Branch a session at (and including) a transcript item. */
+  forkSession: (id: string, itemId: string | null, title?: string) =>
+    request<{ session: AgentSession }>(`/api/agents/sessions/${id}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({ itemId, title }),
+    }),
+  /** Drop the item with this id and everything after it. */
+  truncateSession: (id: string, itemId: string) =>
+    request<{ session: AgentSession }>(`/api/agents/sessions/${id}/truncate`, {
+      method: 'POST',
+      body: JSON.stringify({ itemId }),
+    }),
+  /** Rewrite a user message and drop the rest of the conversation. */
+  editMessage: (id: string, itemId: string, text: string) =>
+    request<{ session: AgentSession }>(`/api/agents/sessions/${id}/messages/${itemId}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  /** Removes one transcript item without touching the rest of the conversation. */
+  deleteMessage: (id: string, itemId: string) =>
+    request<{ session: AgentSession }>(`/api/agents/sessions/${id}/items/${itemId}`, { method: 'DELETE' }),
+  answerQuestion: (id: string, callId: string, selected: string[], note?: string) =>
+    request<{ ok: boolean }>(`/api/agents/sessions/${id}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ callId, selected, note }),
+    }),
+
+  checkpoints: (id: string) =>
+    request<{ checkpoints: CheckpointSummary[] }>(`/api/agents/sessions/${id}/checkpoints`),
+  checkpointDiff: (id: string, checkpointId: string) =>
+    request<{ diff: CheckpointDiffEntry[] }>(`/api/agents/sessions/${id}/checkpoints/${checkpointId}`),
+  restoreCheckpoint: (id: string, checkpointId: string) =>
+    request<{ result: { restored: string[]; deleted: string[]; skipped: string[] } }>(
+      `/api/agents/sessions/${id}/checkpoints/${checkpointId}/restore`,
+      { method: 'POST' },
+    ),
+
+  customize: (root: string) => request<CustomizeCatalog>(`/api/customize?root=${encodeURIComponent(root)}`),
 };
+
+export interface CustomizeCatalog {
+  skills: { name: string; description?: string; source: string; file: string }[];
+  rules: { name: string; description?: string; globs: string[]; activation?: string; source: string; file: string }[];
+  hooks: { stage: string; command: string; matcher?: string }[];
+  tools: { name: string; group: string; description: string }[];
+}
 
 export function socketUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';

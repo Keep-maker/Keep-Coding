@@ -12,6 +12,7 @@ const api = process.argv[2] ?? 'http://127.0.0.1:8787';
 const ui = process.argv[3] ?? 'http://127.0.0.1:5173';
 
 // Point the app at the markdown-only mock provider.
+const previous = await (await fetch(`${api}/api/settings`)).json();
 await fetch(`${api}/api/settings`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -19,6 +20,7 @@ await fetch(`${api}/api/settings`, {
 });
 
 const browser = await chromium.launch();
+try {
 const page = await browser.newPage({ viewport: { width: 1000, height: 1300 }, deviceScaleFactor: 1.6 });
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(e.message));
@@ -64,6 +66,13 @@ check('raw <script> not executed', !xss.a && xss.scripts === 0, JSON.stringify(x
 check('onerror handler not injected', !xss.b);
 check('no page errors', pageErrors.length === 0, pageErrors.join('; '));
 
-await browser.close();
+} finally {
+  await browser.close();
+  await fetch(`${api}/api/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseUrl: previous.baseUrl, model: previous.model }),
+  });
+}
 console.log(`\n${pass}/${pass + fail} markdown checks passed`);
 process.exit(fail ? 1 : 0);

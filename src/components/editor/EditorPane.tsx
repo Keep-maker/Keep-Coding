@@ -1,6 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useEffect, useRef } from 'react';
-import { store } from '../../state/store';
+import { store, useApp } from '../../state/store';
 import type { OpenFile } from '../../types';
 import { IconWarning } from '../common/Icons';
 
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export function EditorPane({ file }: Props) {
+  const state = useApp();
   const editorRef = useRef<any>(null);
   const viewStateRef = useRef(new Map<string, any>());
   const pathRef = useRef<string | null>(null);
@@ -27,17 +28,22 @@ export function EditorPane({ file }: Props) {
         { token: 'function', foreground: '82aaff' },
       ],
       colors: {
-        'editor.background': '#1b1b20',
+        'editor.background': '#17171b',
         'editor.foreground': '#e6e6ea',
-        'editorLineNumber.foreground': '#4b4b57',
-        'editorLineNumber.activeForeground': '#a0a0af',
-        'editor.lineHighlightBackground': '#232329',
-        'editor.selectionBackground': '#3a3a56',
-        'editorCursor.foreground': '#7c5cff',
-        'editorIndentGuide.background1': '#26262e',
-        'editorWidget.background': '#202027',
-        'editorWidget.border': '#3a3a46',
-        'scrollbarSlider.background': '#35353f80',
+        'editorLineNumber.foreground': '#494952',
+        'editorLineNumber.activeForeground': '#9d9daa',
+        'editor.lineHighlightBackground': '#1d1d22',
+        'editor.selectionBackground': '#34344d',
+        'editor.inactiveSelectionBackground': '#292938',
+        'editorCursor.foreground': '#8577ff',
+        'editorIndentGuide.background1': '#24242b',
+        'editorIndentGuide.activeBackground1': '#383842',
+        'editorWidget.background': '#1d1d23',
+        'editorWidget.border': '#33333d',
+        'editorHoverWidget.background': '#1d1d23',
+        'editorHoverWidget.border': '#33333d',
+        'scrollbarSlider.background': '#33333f66',
+        'scrollbarSlider.hoverBackground': '#43434f88',
       },
     });
     monaco.editor.setTheme('cursor-fork-dark');
@@ -57,6 +63,18 @@ export function EditorPane({ file }: Props) {
       if (state) editorRef.current.restoreViewState(state);
     }
   }, [file?.path]);
+
+  // Reveal a line requested by a tool call, search hit, or checkpoint preview.
+  useEffect(() => {
+    const reveal = state.pendingReveal;
+    if (!reveal || !file || reveal.path !== file.path || file.loading) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const line = Math.max(1, reveal.line);
+    editor.setPosition({ lineNumber: line, column: 1 });
+    editor.revealLineInCenter(line);
+    store.clearPendingReveal();
+  }, [state.pendingReveal, file?.path, file?.loading]);
 
   if (!file) {
     return (
