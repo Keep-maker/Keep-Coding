@@ -1,259 +1,48 @@
-# Cursor Fork
+# Keep Coding
 
-A web-based AI coding tool that replicates the core Cursor 3 experience, built on top of
-[VS Code](https://github.com/microsoft/vscode)'s open-source editor core.
+Web AI coding tool replicating Cursor's core experience (Editor Window + Agents Window).
 
-The app ships **two switchable window modes**, mirroring Cursor 3:
+## Stack
 
-| | **Editor Window** | **Agents Window** |
-|---|---|---|
-| **Role** | Classic IDE for browsing and hand-editing code | Agent-first workbench for delegating work |
-| **Layout** | Activity bar → file tree/search → tabs → editor → terminal → status bar | Session rail → transcript → composer, plus a review side panel |
-| **Key features** | File tree, multi-tab editing, Monaco syntax highlighting, fuzzy quick-open (Ctrl+P), workspace-wide search, integrated terminal, breadcrumbs, dirty-state tracking | Multiple parallel agents, streaming responses, rendered markdown answers (GFM tables, task lists, syntax-highlighted code with copy buttons, clickable file paths), live tool-call transparency (diffs + terminal output), Agent/Plan/Ask modes, change review with unified diffs |
-
-Both windows share one workspace, one file state, and one agent session list, so you can
-start an agent in the Agents Window and inspect its edits in the Editor Window (and vice versa).
-
----
+- **Frontend**: Vite + React 18, Monaco Editor, Tailwind-less hand-rolled CSS
+- **Backend**: Express 4 over TS (tsx), streaming chat completions against any OpenAI-compatible endpoint
+- **Tooling**: Playwright end-to-end suite + local mocks for LLM / shell / markdown streaming
 
 ## Quick start
 
 ```bash
 npm install
-
-# Configure the model (any OpenAI-compatible endpoint)
-cp .env.example .env      # then edit CURSOR_FORK_API_KEY
-
-npm run dev               # API on :8787, Vite UI on :5173
+cp .env.example .env   # fill in CURSOR_FORK_API_KEY
+npm run dev
 ```
 
-Open <http://127.0.0.1:5173>.
+The dev server runs concurrently on:
 
-To set the key in the browser instead, open **Model settings** (gear icon, or `Ctrl+,`)
-and use **Test connection** to verify — no restart needed.
+- `http://127.0.0.1:8787` — API server
+- `http://127.0.0.1:5173` — Vite UI
 
-### Single-port production run
+A bundled demo workspace lives at `examples/demo-project`; the server opens it by default so a fresh clone is immediately usable.
+
+## Configuration
+
+All provider configuration is in `.env` (or the in-app Settings dialog, which writes to `.data/settings.json`). `.env`, `.data/` and `vendor/` are gitignored and never committed.
+
+## Tests
 
 ```bash
-npm run build
-npm start                 # serves the built UI + API from http://127.0.0.1:8787
+npm run typecheck       # tsc --noEmit
+npm run test:tools      # local tool tests
+npm run test:api        # end-to-end API suite (requires a running server)
+npm run test:markdown   # markdown rendering regression
+npm run test:streaming  # streaming shimmer / thinking-state regression
 ```
 
-### Configuration
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `CURSOR_FORK_API_KEY` | `sk-xxx` | Bearer token for the model provider |
-| `CURSOR_FORK_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI-compatible base URL (the `/chat/completions` path is appended) |
-| `CURSOR_FORK_MODEL` | `deepseek-flash` | Model id sent in each request |
-| `CURSOR_FORK_WORKSPACE` | `examples/demo-project` | Folder the app opens by default |
-| `CURSOR_FORK_PORT` | `8787` | API port |
-| `CURSOR_FORK_MAX_STEPS` | `40` | Max agent tool-call rounds per turn |
-| `CURSOR_FORK_COMMAND_TIMEOUT_MS` | `120000` | Shell timeout for agent commands |
-
-Values saved from the in-app Settings dialog are stored in `.data/settings.json` and take
-precedence over `.env`.
-
----
-
-## Architecture
+## Repository layout
 
 ```
-server/                     Node + Express + WebSocket API
-  config.ts                 env / stored-setting resolution, provider info
-  routes.ts                 workspace (tree, file, search, CRUD) + terminal routes
-  index.ts                  HTTP server, agent WebSocket, static SPA hosting
-  agent/
-    tools/                  the 17 agent tools (explore/edit/execute + tasks + questions)
-    loop.ts                 stream → tool calls → feed results back → repeat
-    sessions.ts             concurrent session manager + transcripts
-  services/
-    workspace.ts            sandboxed filesystem, tree building, language detection
-    search.ts               content search + fuzzy quick-open
-    shell.ts                shell runner with timeout + output clamping
-    llm.ts                  OpenAI-compatible streaming client
-
-src/                        React UI
-  state/store.ts            single observable store shared by both windows
-  api/                      REST + agent WebSocket clients
-  components/editor/        Editor Window
-  components/agents/        Agents Window
-  components/common/        markdown renderer, quick open, settings, icons
-  styles/                   design tokens + per-window + markdown stylesheets
-
-vendor/vscode/              shallow clone of microsoft/vscode (reference; not built)
-tools/                      verification scripts, mock providers, screenshot helper
-examples/demo-project/    sample workspace the app opens by default
+src/        React app (editor + agents windows)
+server/     Express API
+tools/      Mocks, verification scripts, e2e harness
+examples/   Sample project auto-opened on first launch
+shots/      E2E screenshots (gitignored)
 ```
-
-### How the agent works
-
-Each turn is a bounded loop (`server/agent/loop.ts`):
-
-1. Stream a chat completion with the 17 tool schemas attached.
-2. Accumulate streamed text (rendered live) and incremental tool-call fragments.
-3. Execute each tool against the workspace, capturing a **before/after snapshot**.
-4. Append the tool results to the message history and loop.
-5. Stop when the model replies without tool calls, or at `CURSOR_FORK_MAX_STEPS`.
-
-Every session gets its own `AbortController`, so agents run **concurrently** and the UI can
-stop one without touching the others.
-
-### Agent output rendering
-
-Agent answers are rendered as GitHub-flavoured markdown (`react-markdown` + `remark-gfm` +
-`rehype-highlight`), not raw text:
-
-- Headings, lists, nested lists, bold/italic/strikethrough, blockquotes, horizontal rules
-- GFM tables (horizontally scrollable) and task lists with real checkboxes
-- Fenced code blocks get a language bar, syntax highlighting, and a copy button; long lines
-  scroll inside the block instead of widening the transcript
-- Inline code that matches a file in the workspace renders as a clickable chip that opens
-  that file in the editor
-- Raw HTML from the model is escaped, never executed (verified by `test:markdown`)
-
-While a run is in progress the UI never parks a blinking block cursor at the end of the
-text. Instead, the block currently being written sweeps under a soft highlight (the
-streaming shimmer Cursor uses), and a `Thinking` row with animated dots covers the gaps
-before the first token and between tool calls. Both disappear the moment the run settles.
-`prefers-reduced-motion` disables the animation.
-
-### Agent tools
-
-| Tool | Purpose |
-|---|---|
-| `read_file` | Read a line range with line numbers |
-| `list_files` | Enumerate the workspace or a subdirectory |
-| `glob_file_search` | Find files by glob |
-| `grep_search` | Plain-text or regex content search with glob filtering |
-| `directory_tree` | Return a nested project tree |
-| `read_image` | Attach a local image for vision-capable models |
-| `file_info` | Report size, line count, and language |
-| `edit_file` | Replace an exact, unique text block |
-| `multi_edit` | Apply many edits across files in one tool call |
-| `write_file` | Create or fully overwrite a file |
-| `move_file` | Rename or move a file |
-| `delete_file` | Delete a file or directory |
-| `run_command` | Execute a shell command in the workspace root |
-| `todo_write` | Maintain the agent's structured task list |
-| `ask_question` | Pause and ask the user to choose an answer |
-| `task` | Delegate a bounded task to a sub-agent |
-
-`edit_file` requires the matched text to be unique unless `replace_all` is set, which makes
-ambiguous edits fail loudly instead of silently corrupting a file.
-
-### Customization
-
-The Customize drawer (`Ctrl+Shift+J`) discovers the same extension surfaces Cursor uses:
-
-- **Skills** from `.cursor/skills/<name>/SKILL.md`, `~/.cursor/skills`, and the
-  `.agents/skills` compatibility paths. Invoke one from the composer with `/`, inspect it
-  in Customize, or open its `SKILL.md` directly.
-- **Rules** from `.cursor/rules/*.mdc` and `AGENTS.md`, including activation mode and glob
-  scoping.
-- **Hooks** from `.cursor/hooks.json`, with support for `session_start`, `before_tool`,
-  `after_tool`, `after_edit`, and `before_submit`.
-- **Sub-agents** via the `task` tool. They get an isolated context and return a report.
-- **Built-in tools** grouped by exploration, editing, and execution.
-
-### Transcript controls
-
-Every user and assistant message supports copy, edit-and-rerun, rewind, fork, regenerate
-(assistant messages), and delete. Assistant output is rendered as GitHub-flavoured markdown.
-Checkpoints snapshot the files touched by each turn; the checkpoint dialog previews a diff
-and can restore those files without deleting the conversation.
-
-### Safety boundaries
-
-- Every path is resolved through `safeResolve`, which rejects anything escaping the
-  workspace root (`../` traversal is blocked, verified by tests).
-- Shell commands run with the workspace as `cwd` and are killed on timeout
-  (process-tree kill on Windows).
-- Command output is clamped to 40 KB; tool results sent to the model to 30 KB.
-- Binary files are refused by `read_file`; `.git`, `node_modules`, and similar
-  directories are excluded from the tree and from search.
-
----
-
-## Verification
-
-```bash
-npm run typecheck       # whole-project TypeScript check
-npm run test:tools      # agent-tool edge cases (CRLF, ambiguity, traversal, ...)
-npm run test:api        # end-to-end API + agent-loop checks (needs the dev server)
-npm run test:markdown   # markdown-rendering checks incl. raw-HTML/XSS safety
-npm run test:streaming  # streaming-affordance checks (shimmer, no blinking caret)
-node tools/verify-advanced.mjs  # checkpoints, edit/fork, skills, rules, hooks, 17 tools
-
-npm run mock:llm        # optional: local OpenAI-compatible mock on :9911
-npm run mock:markdown   # optional: mock that returns a markdown torture test
-```
-
-`test:api` drives real agent runs over the WebSocket, including a **parallel-agents** check.
-
-Two mock providers let the whole stack be exercised without spending API credits:
-
-- `tools/mock-llm.mjs` scripts a self-contained 5-step trajectory
-  (`list_files → write_file → read_file → edit_file → run_command`) and then replies with a
-  rich markdown answer. It writes its own scratch file, so it works against any workspace.
-- `tools/mock-markdown.mjs` returns a markdown torture-test document for the renderer.
-- `tools/mock-slow.mjs` streams one token at a time after a delay, so the thinking and
-  shimmer states can be observed and asserted.
-
-```bash
-npm run mock:llm                         # terminal 1
-# point Settings → Base URL at http://127.0.0.1:9911/v1, or:
-npm run test:markdown                    # drives the markdown mock and asserts the output
-```
-
-Visual checks use Playwright: `node tools/shot.mjs` walks both windows, saves screenshots into
-`shots/`, and exits non-zero if the page logged any console errors.
-
----
-
-## Keyboard shortcuts
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+P` | Quick open (fuzzy file search) |
-| `Ctrl+,` | Model settings |
-| `Ctrl+S` | Save the active file (files also autosave 700 ms after you stop typing) |
-| `Ctrl+Shift+A` | Switch to the Agents Window |
-| `Ctrl+Shift+E` | Switch to the Editor Window |
-| `Ctrl+Shift+J` | Open Customize (skills, rules, hooks, tools) |
-| `Enter` / `Shift+Enter` | Send agent prompt / newline |
-
----
-
-## Research notes
-
-`research/cursor-docs/` contains the Cursor 3 product documentation that informed the
-window and agent design (Agents Window, Agent overview, Plan Mode, Projects, Prompting,
-Design Mode).
-
-Two tooling caveats, recorded for reproducibility:
-
-- **Firecrawl and Context7 were not available in the build environment** (no such MCP
-  server was configured). The Cursor documentation above was fetched directly and
-  converted to text, and framework API reference came from the installed packages'
-  TypeScript declarations under `node_modules` rather than a docs-lookup service.
-- The VS Code tree in `vendor/vscode` was cloned for reference only. It is gitignored;
-  re-clone it with `gh repo clone microsoft/vscode vendor/vscode` if you want it locally.
-
----
-
-## Relationship to VS Code
-
-`vendor/vscode` is a shallow clone of `microsoft/vscode` kept as a **reference** for the
-editor and workbench design — the layout of this app's parts (activity bar, sidebar,
-editor area, panel, status bar) mirrors VS Code's real workbench structure, and the editor
-is Monaco, the same editor core VS Code ships. This project does not build or embed the VS
-Code desktop application; it is an independent web implementation of the Cursor-style
-experience on top of the Monaco editor.
-
-
-
-
-
-
-
