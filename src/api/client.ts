@@ -7,11 +7,62 @@ export interface ProviderPublicInfo {
   apiKeyConfigured: boolean;
 }
 
+/**
+ * When the UI is served from a static host (Cloudflare Pages) the Express API
+ * lives on another origin. VITE_API_BASE points at it, e.g.
+ *   VITE_API_BASE=https://keep-coding-api.example.com
+ * Leave it unset for local development, where Vite proxies /api.
+ */
+export const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
+
+const TOKEN_STORAGE_KEY = 'keep-coding.token';
+
+/** The shared access token. Never bundled - the user pastes it at login. */
+export function getToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setToken(token: string): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    else localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    /* private mode - the session simply will not persist */
+  }
+}
+
+/** Raised when the server rejects the token so the UI can show the login screen. */
+export class UnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(API_BASE + url, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
   });
+  if (response.status === 401) {
+    const body = await response.text().catch(() => '');
+    let message = 'Unauthorized';
+    try {
+      message = JSON.parse(body)?.error ?? message;
+    } catch {
+      /* keep the default */
+    }
+    throw new UnauthorizedError(message);
+  }
   const text = await response.text();
   let json: any = null;
   if (text) {
@@ -28,6 +79,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  /** Unauthenticated liveness probe used before the token is known. */
+  ping: () => request<{ ok: boolean; authRequired: boolean; name: string }>('/api/ping'),
+
   health: () =>
     request<{ ok: boolean; defaultWorkspace: string; provider: ProviderPublicInfo; platform: string }>('/api/health'),
 
@@ -120,6 +174,10 @@ export interface CustomizeCatalog {
 }
 
 export function socketUrl(): string {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${proto}://${location.host}/api/agents/socket`;
+  const base = API_BASE || `${location.protocol}//${location.host}`;
+  const url = new URL('/api/agents/socket', base);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  const token = getToken();
+  if (token) url.searchParams.set('token', token);
+  return url.toString();
 }

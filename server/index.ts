@@ -10,23 +10,40 @@ import { checkpoints } from './agent/checkpoints.js';
 import { discoverHooks } from './agent/hooks.js';
 import { discoverRules } from './agent/rules.js';
 import { discoverSkills } from './agent/skills.js';
+import { TOKEN_HEADER, authDisabled, isAuthorizedUpgrade, requireAuth } from './auth.js';
 import os from 'node:os';
 
 const app = express();
 app.use(express.json({ limit: '12mb' }));
 
+/**
+ * CORS. The UI is normally served from Cloudflare Pages on a different origin,
+ * so only the origins named in CURSOR_FORK_ALLOWED_ORIGINS are echoed back.
+ * Requests without an Origin header (same-origin, curl, probes) always pass.
+ */
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  const origin = req.get('origin');
+  const allowed = Boolean(origin) && config.allowedOrigins.includes(origin as string);
+  if (allowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin as string);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ' + TOKEN_HEADER);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
   if (req.method === 'OPTIONS') {
-    res.sendStatus(204);
+    res.sendStatus(allowed || !origin ? 204 : 403);
     return;
   }
   next();
 });
 
-app.use('/api', createRouter());
+/** Unauthenticated liveness probe: lets the login screen check reachability. */
+app.get('/api/ping', (_req, res) => {
+  res.json({ ok: true, authRequired: !authDisabled(), name: 'keep-coding' });
+});
+
+app.use('/api', requireAuth, createRouter());
 
 /** Sessions ------------------------------------------------------------------ */
 
@@ -189,7 +206,16 @@ if (fs.existsSync(path.join(distDir, 'index.html'))) {
 }
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/api/agents/socket' });
+const wss = new WebSocketServer({
+  server,
+  path: '/api/agents/socket',
+  /**
+   * Browsers cannot attach custom headers to a WebSocket handshake, so the UI
+   * passes the shared token as a query parameter. Reject anything else before
+   * the connection is established - this socket can start agent runs.
+   */
+  verifyClient: (info: { req: { url?: string } }) => isAuthorizedUpgrade(info.req.url),
+});
 
 interface ClientMessage {
   type: string;
@@ -262,7 +288,7 @@ wss.on('connection', (socket: WebSocket) => {
   send({ type: 'hello', provider: publicProviderInfo(), defaultWorkspace: config.defaultWorkspace });
 });
 
-server.listen(config.port, () => {
+server.listen(config.port, config.host, () => {
   const p = publicProviderInfo();
   console.log(`[cursor-fork] API listening on http://127.0.0.1:${config.port}`);
   console.log(`[cursor-fork] workspace: ${config.defaultWorkspace}`);

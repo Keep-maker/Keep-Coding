@@ -4,6 +4,7 @@ import { EditorWindow } from './components/editor/EditorWindow';
 import { AgentsWindow } from './components/agents/AgentsWindow';
 import { CustomizePanel } from './components/agents/CustomizePanel';
 import { SettingsDialog, ToastLayer } from './components/common/SettingsDialog';
+import { LoginScreen } from './components/common/LoginScreen';
 import { QuickOpen } from './components/common/QuickOpen';
 import { IconFileCode, IconLayers, IconSearch, IconSettings, IconSliders } from './components/common/Icons';
 
@@ -101,11 +102,20 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [state.activePath]);
 
+  if (state.needsAuth) {
+    return (
+      <div className="app">
+        <LoginScreen />
+        <ToastLayer />
+      </div>
+    );
+  }
+
   if (!state.ready) {
     return (
       <div className="app">
         <div className="placeholder" style={{ height: '100vh' }}>
-          Starting Cursor Fork...
+          Starting Keep Coding...
         </div>
       </div>
     );

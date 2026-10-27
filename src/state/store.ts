@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { api, type ProviderPublicInfo } from '../api/client';
+import { UnauthorizedError, api, getToken, setToken, type ProviderPublicInfo } from '../api/client';
 import { agentSocket, type AgentSocketEvent } from '../api/agentSocket';
 import type {
   AgentSession,
@@ -39,6 +39,10 @@ export interface AppState {
   editingItemId: string | null;
   /** Set when a file should be scrolled to a specific line after opening. */
   pendingReveal: { path: string; line: number; at: number } | null;
+  /** True when the API rejected our token and the login screen must be shown. */
+  needsAuth: boolean;
+  /** Human-readable reason shown on the login screen. */
+  authError: string | null;
 }
 
 const initialState: AppState = {
@@ -60,6 +64,8 @@ const initialState: AppState = {
   checkpoints: {},
   editingItemId: null,
   pendingReveal: null,
+  needsAuth: false,
+  authError: null,
 };
 
 type Listener = () => void;
@@ -86,6 +92,18 @@ class AppStore {
   }
 
   async bootstrap(): Promise<void> {
+    if (!getToken()) {
+      // No stored token: probe whether the server even requires one.
+      try {
+        const ping = await api.ping();
+        if (ping.authRequired) {
+          this.set({ ready: true, needsAuth: true, authError: null });
+          return;
+        }
+      } catch {
+        /* fall through and let the normal path report the real error */
+      }
+    }
     this.bindSocket();
     try {
       const health = await api.health();
@@ -97,8 +115,28 @@ class AppStore {
       if (list.length) this.setActiveSession(list[0].id);
       this.set({ ready: true });
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        setToken('');
+        this.set({ ready: true, needsAuth: true, authError: 'The access token was rejected.' });
+        return;
+      }
       this.set({ ready: true, toast: { level: 'error', text: `Startup failed: ${(err as Error).message}` } });
     }
+  }
+
+  /** Stores a token and re-runs startup so the app can load. */
+  async signIn(token: string): Promise<void> {
+    setToken(token.trim());
+    this.set({ needsAuth: false, authError: null, ready: false });
+    this.socketBound = false;
+    await this.bootstrap();
+  }
+
+  signOut(): void {
+    setToken('');
+    agentSocket.disconnect();
+    this.socketBound = false;
+    this.set({ ...initialState, ready: true, needsAuth: true });
   }
 
   private bindSocket(): void {

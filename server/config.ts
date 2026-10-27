@@ -21,6 +21,15 @@ export interface AppConfig {
   /** Default workspace opened by the web UI when none is given. */
   defaultWorkspace: string;
   provider: ProviderConfig;
+  /**
+   * Shared secret that guards the API and the agent socket. Empty means the
+   * server is only meant for local development.
+   */
+  authToken: string;
+  /** Bind address. Loopback by default so an unguarded server is never public. */
+  host: string;
+  /** Origins allowed to call the API when the UI is served from elsewhere. */
+  allowedOrigins: string[];
 }
 
 const ROOT = process.cwd();
@@ -104,11 +113,21 @@ function loadProvider(): ProviderConfig {
   };
 }
 
+function allowedOrigins(): string[] {
+  return envOr('CURSOR_FORK_ALLOWED_ORIGINS', '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 export const config: AppConfig = {
   port: Number(envOr('CURSOR_FORK_PORT', '8787')),
   dataDir: DATA_DIR,
   defaultWorkspace: defaultWorkspace(),
   provider: loadProvider(),
+  authToken: envOr('CURSOR_FORK_AUTH_TOKEN', '').trim(),
+  host: envOr('CURSOR_FORK_HOST', '127.0.0.1'),
+  allowedOrigins: allowedOrigins(),
 };
 
 /** Provider settings are re-read on every request so UI edits apply immediately. */
