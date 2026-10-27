@@ -94,17 +94,27 @@ class AppStore {
   async bootstrap(): Promise<void> {
     if (!getToken()) {
       // No stored token: probe whether the server even requires one.
+      let open = false;
       try {
         const ping = await api.ping();
-        if (ping.authRequired) {
-          this.set({ ready: true, needsAuth: true, authError: null });
-          return;
-        }
-      } catch {
-        /* fall through and let the normal path report the real error */
+        open = !ping.authRequired;
+      } catch (err) {
+        // The API is unreachable or wedged. Ask for a token rather than
+        // continuing, otherwise we would open an unauthenticated agent socket
+        // that the server rejects and leave the UI in a broken half-ready
+        // state. Signing in retries the whole bootstrap.
+        this.set({
+          ready: true,
+          needsAuth: true,
+          authError: `Could not reach the API (${(err as Error).message}). Check the connection and try again.`,
+        });
+        return;
+      }
+      if (!open) {
+        this.set({ ready: true, needsAuth: true, authError: null });
+        return;
       }
     }
-    this.bindSocket();
     try {
       const health = await api.health();
       this.set({ root: health.defaultWorkspace, provider: health.provider });
@@ -112,6 +122,10 @@ class AppStore {
       const { sessions } = await api.sessions();
       const list = (sessions ?? []) as unknown as AgentSession[];
       this.set({ sessions: list });
+      // Only dial the agent socket once the token has proven itself. Handshakes
+      // with a stale token are rejected at the HTTP layer and the socket would
+      // otherwise retry every 1.5s forever.
+      this.bindSocket();
       if (list.length) this.setActiveSession(list[0].id);
       this.set({ ready: true });
     } catch (err) {
